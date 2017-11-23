@@ -9,6 +9,8 @@
 # Example:
 # ./tools/generate_tsv.py --gpu 0,1,2,3,4,5,6,7 --cfg experiments/cfgs/faster_rcnn_end2end_resnet.yml --def models/vg/ResNet-101/faster_rcnn_end2end/test.prototxt --out test2014_resnet101_faster_rcnn_genome.tsv --net data/faster_rcnn_models/resnet101_faster_rcnn_final.caffemodel --split coco_test2014
 
+#python generate_tsv.py --def ../models/vg/ResNet-101/faster_rcnn_end2end_final/test.prototxt --net ../data/faster_rcnn_models/resnet101_faster_rcnn_final.caffemodel --out chinese_feats --cfg ../experiments/cfgs/faster_rcnn_end2end_resnet.yml --split chinese
+
 
 import _init_paths
 from fast_rcnn.config import cfg, cfg_from_file
@@ -31,7 +33,7 @@ import json
 csv.field_size_limit(sys.maxsize)
 
 
-FIELDNAMES = ['image_id', 'image_w','image_h','num_boxes', 'boxes', 'features']
+FIELDNAMES = ['image_id', 'image_w','image_h','num_boxes']#, 'boxes', 'features']
 
 # Settings for the number of features per image. To re-create pretrained features with 36 features
 # per image, set both values to 36. 
@@ -61,6 +63,24 @@ def load_image_ids(split_name):
           image_id = int(item['image_id'])
           filepath = os.path.join('/data/visualgenome/', item['url'].split('rak248/')[-1])
           split.append((filepath,image_id))      
+    elif split_name == 'chinese':
+      with open('datasets/ai_challenger_caption_train_20170902/caption_train_annotations_20170902.json') as f:
+        for item in json.load(f):
+          image_id = item['image_id']
+          filepath = os.path.join('datasets/ai_challenger_caption_train_20170902/caption_train_images_20170902', image_id)
+          split.append((filepath,image_id))
+    elif split_name == 'chinese_val':
+      with open('datasets/ai_challenger_caption_validation_20170910/caption_validation_annotations_20170910.json') as f:
+        for item in json.load(f):
+          image_id = item['image_id']
+          filepath = os.path.join('datasets/ai_challenger_caption_validation_20170910/caption_validation_images_20170910', image_id)
+          split.append((filepath,image_id))
+    elif split_name == 'chinese_test1':
+      with open('datasets/ai_challenger_caption_test1_20170923/caption_test1_annotations_20170923.json') as f:
+        for item in json.load(f):
+          image_id = item['image_id']
+          filepath = os.path.join('datasets/ai_challenger_caption_test1_20170923/caption_test1_images_20170923', image_id)
+          split.append((filepath,image_id)) 
     else:
       print 'Unknown split'
     return split
@@ -93,15 +113,19 @@ def get_detections_from_im(net, im_file, image_id, conf_thresh=0.2):
         keep_boxes = np.argsort(max_conf)[::-1][:MIN_BOXES]
     elif len(keep_boxes) > MAX_BOXES:
         keep_boxes = np.argsort(max_conf)[::-1][:MAX_BOXES]
-   
+  
+    feat = pool5[keep_boxes]
+    np.save('chinese_bu_fc/'+image_id, feat.mean(0))
+    np.savez_compressed('chinese_bu_att/'+image_id, feat=feat)
+    np.save('chinese_bu_box/'+image_id, cls_boxes[keep_boxes])
     return {
         'image_id': image_id,
         'image_h': np.size(im, 0),
         'image_w': np.size(im, 1),
-        'num_boxes' : len(keep_boxes),
-        'boxes': base64.b64encode(cls_boxes[keep_boxes]),
-        'features': base64.b64encode(pool5[keep_boxes])
-    }   
+        'num_boxes' : len(keep_boxes)}#,
+        #'boxes': base64.b64encode(cls_boxes[keep_boxes]),
+        #'features': base64.b64encode(pool5[keep_boxes])
+    #}   
 
 
 def parse_args():
@@ -139,13 +163,13 @@ def parse_args():
     
 def generate_tsv(gpu_id, prototxt, weights, image_ids, outfile):
     # First check if file exists, and if it is complete
-    wanted_ids = set([int(image_id[1]) for image_id in image_ids])
+    wanted_ids = set([image_id[1] for image_id in image_ids])
     found_ids = set()
     if os.path.exists(outfile):
         with open(outfile) as tsvfile:
             reader = csv.DictReader(tsvfile, delimiter='\t', fieldnames = FIELDNAMES)
             for item in reader:
-                found_ids.add(int(item['image_id']))
+                found_ids.add(item['image_id'])
     missing = wanted_ids - found_ids
     if len(missing) == 0:
         print 'GPU {:d}: already completed {:d}'.format(gpu_id, len(image_ids))
@@ -160,7 +184,7 @@ def generate_tsv(gpu_id, prototxt, weights, image_ids, outfile):
             _t = {'misc' : Timer()}
             count = 0
             for im_file,image_id in image_ids:
-                if int(image_id) in missing:
+                if image_id in missing:
                     _t['misc'].tic()
                     writer.writerow(get_detections_from_im(net, im_file, image_id))
                     _t['misc'].toc()

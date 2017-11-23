@@ -1,3 +1,12 @@
+set(CUDA_HOST_COMPILATION_CPP ON)
+set(CUDA_NVCC_FLAGS -v -std=c++11 -g -Xcompiler -fexceptions -Xcompiler -fPIC)
+set(CMAKE_C_FLAGS "-g -fPIC")
+
+set (CMAKE_CXX_STANDARD 11)
+
+include_directories(${NCCL_INCLUDE_DIR})
+link_directories(${NCCL_LIBRARIES})
+
 cmake_minimum_required(VERSION 2.8.7)
 if(POLICY CMP0046)
   cmake_policy(SET CMP0046 NEW)
@@ -28,14 +37,15 @@ include(cmake/ConfigGen.cmake)
 # ---[ Options
 caffe_option(CPU_ONLY  "Build Caffe without CUDA support" OFF) # TODO: rename to USE_CUDA
 caffe_option(USE_CUDNN "Build Caffe with cuDNN library support" ON IF NOT CPU_ONLY)
-caffe_option(USE_NCCL "Build Caffe with NCCL library support" OFF)
+caffe_option(USE_NCCL "Build Caffe with NCCL library support" ON)
 caffe_option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 caffe_option(BUILD_python "Build Python wrapper" ON)
 set(python_version "2" CACHE STRING "Specify which Python version to use")
 caffe_option(BUILD_matlab "Build Matlab wrapper" OFF IF UNIX OR APPLE)
 caffe_option(BUILD_docs   "Build documentation" ON IF UNIX OR APPLE)
 caffe_option(BUILD_python_layer "Build the Caffe Python layer" ON)
-caffe_option(USE_OPENCV "Build with OpenCV support" ON)
+#caffe_option(USE_OPENCV "Build with OpenCV support" ON)
+caffe_option(USE_OPENCV "Build with OpenCV support" OFF)
 caffe_option(USE_LEVELDB "Build with levelDB" ON)
 caffe_option(USE_LMDB "Build with lmdb" ON)
 caffe_option(ALLOW_LMDB_NOLOCK "Allow MDB_NOLOCK when reading LMDB files (only if necessary)" OFF)
